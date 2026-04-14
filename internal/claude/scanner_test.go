@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/danielfollent/chatgrep/internal/text"
 )
 
 func testdataDir(t *testing.T) string {
@@ -227,8 +229,8 @@ func TestScanSession_SnippetTruncation(t *testing.T) {
 	if len(results) != 1 {
 		t.Fatalf("got %d results, want 1", len(results))
 	}
-	if len(results[0].Snippet) > MaxSnippetLen+10 { // small tolerance for rune boundary
-		t.Errorf("snippet length %d exceeds max %d", len(results[0].Snippet), MaxSnippetLen)
+	if len(results[0].Snippet) > text.MaxSnippetLen+10 { // small tolerance for rune boundary
+		t.Errorf("snippet length %d exceeds max %d", len(results[0].Snippet), text.MaxSnippetLen)
 	}
 }
 
@@ -282,6 +284,73 @@ func TestSearchAll(t *testing.T) {
 	for _, r := range results {
 		if r.SessionID != "sess-002" {
 			t.Errorf("sessionId = %q, want %q", r.SessionID, "sess-002")
+		}
+	}
+}
+
+func TestScanSession_MultiWordAND(t *testing.T) {
+	dir := t.TempDir()
+	lines := `{"type":"user","message":{"role":"user","content":"deploy to staging server"},"uuid":"msg-mw1","timestamp":"2026-04-01T10:00:00.000Z","sessionId":"sess-mw","cwd":"/tmp","isSidechain":false}
+{"type":"user","message":{"role":"user","content":"deploy to production"},"uuid":"msg-mw2","timestamp":"2026-04-01T10:00:01.000Z","sessionId":"sess-mw","cwd":"/tmp","isSidechain":false}
+{"type":"user","message":{"role":"user","content":"staging is down"},"uuid":"msg-mw3","timestamp":"2026-04-01T10:00:02.000Z","sessionId":"sess-mw","cwd":"/tmp","isSidechain":false}
+`
+	path := filepath.Join(dir, "multiword.jsonl")
+	if err := os.WriteFile(path, []byte(lines), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// "deploy staging" should match only the message with both words
+	results, err := ScanSession(path, "deploy staging", 10)
+	if err != nil {
+		t.Fatalf("ScanSession: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("got %d results, want 1", len(results))
+	}
+	if results[0].UUID != "msg-mw1" {
+		t.Errorf("uuid = %q, want msg-mw1", results[0].UUID)
+	}
+}
+
+func TestScanSession_SingleWordUnchanged(t *testing.T) {
+	dir := t.TempDir()
+	lines := `{"type":"user","message":{"role":"user","content":"deploy to staging"},"uuid":"msg-sw1","timestamp":"2026-04-01T10:00:00.000Z","sessionId":"sess-sw","cwd":"/tmp","isSidechain":false}
+`
+	path := filepath.Join(dir, "singleword.jsonl")
+	if err := os.WriteFile(path, []byte(lines), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	results, err := ScanSession(path, "deploy", 10)
+	if err != nil {
+		t.Fatalf("ScanSession: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("got %d results, want 1", len(results))
+	}
+}
+
+func TestScanSession_SkipsSidechain(t *testing.T) {
+	dir := t.TempDir()
+	lines := `{"type":"user","message":{"role":"user","content":"real message"},"uuid":"msg-a","timestamp":"2026-04-01T10:00:00.000Z","sessionId":"sess-sc","cwd":"/tmp","isSidechain":false}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"subagent noise"}]},"uuid":"msg-b","timestamp":"2026-04-01T10:00:01.000Z","sessionId":"sess-sc","cwd":"/tmp","isSidechain":true}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"real reply"}]},"uuid":"msg-c","timestamp":"2026-04-01T10:00:02.000Z","sessionId":"sess-sc","cwd":"/tmp","isSidechain":false}
+`
+	path := filepath.Join(dir, "sidechain.jsonl")
+	if err := os.WriteFile(path, []byte(lines), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	results, err := ScanSession(path, "", 10)
+	if err != nil {
+		t.Fatalf("ScanSession: %v", err)
+	}
+	if len(results) != 2 {
+		t.Errorf("got %d results, want 2 (sidechain excluded)", len(results))
+	}
+	for _, r := range results {
+		if r.UUID == "msg-b" {
+			t.Errorf("sidechain message msg-b should be excluded")
 		}
 	}
 }

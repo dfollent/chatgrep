@@ -4,14 +4,11 @@ import (
 	"bufio"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"sync"
+
+	"github.com/danielfollent/chatgrep/internal/text"
 )
-
-var ansiRe = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
-
-const MaxSnippetLen = 200
 
 type Session struct {
 	ID      string
@@ -106,7 +103,7 @@ func ScanSession(path string, query string, maxResults int) ([]SearchResult, err
 	}
 	defer f.Close()
 
-	queryLower := strings.ToLower(query)
+	terms := strings.Fields(query)
 	var results []SearchResult
 
 	scanner := bufio.NewScanner(f)
@@ -122,15 +119,20 @@ func ScanSession(path string, query string, maxResults int) ([]SearchResult, err
 			continue
 		}
 
-		if query != "" && !strings.Contains(strings.ToLower(msg.Text), queryLower) {
+		if len(terms) > 0 && !text.MatchesAll(msg.Text, terms) {
 			continue
+		}
+
+		snippetQuery := query
+		if len(terms) > 0 {
+			snippetQuery = terms[0]
 		}
 
 		results = append(results, SearchResult{
 			ID:        msg.ID,
 			Role:      msg.Role,
 			Text:      msg.Text,
-			Snippet:   snippet(msg.Text, query, MaxSnippetLen),
+			Snippet:   text.Snippet(msg.Text, snippetQuery, text.MaxSnippetLen),
 			Timestamp: msg.Timestamp,
 		})
 	}
@@ -201,62 +203,3 @@ func ReadMessages(path string) ([]ParsedMessage, error) {
 	return msgs, scanner.Err()
 }
 
-// snippet extracts a maxLen-rune window from s, centered on the first
-// occurrence of query. Falls back to the start if query is empty or not found.
-func snippet(s, query string, maxLen int) string {
-	s = collapseWhitespace(s)
-	runes := []rune(s)
-	if len(runes) <= maxLen {
-		return s
-	}
-
-	center := 0
-	if query != "" {
-		idx := strings.Index(strings.ToLower(s), strings.ToLower(query))
-		if idx >= 0 {
-			center = len([]rune(s[:idx]))
-		}
-	}
-
-	start := center - maxLen/2
-	if start < 0 {
-		start = 0
-	}
-	end := start + maxLen
-	if end > len(runes) {
-		end = len(runes)
-		start = end - maxLen
-		if start < 0 {
-			start = 0
-		}
-	}
-
-	prefix := ""
-	suffix := ""
-	if start > 0 {
-		prefix = "..."
-	}
-	if end < len(runes) {
-		suffix = "..."
-	}
-	return prefix + string(runes[start:end]) + suffix
-}
-
-func collapseWhitespace(s string) string {
-	s = ansiRe.ReplaceAllString(s, "")
-	var b strings.Builder
-	b.Grow(len(s))
-	inSpace := false
-	for _, r := range s {
-		if r == '\n' || r == '\r' || r == '\t' || r == ' ' {
-			if !inSpace {
-				b.WriteByte(' ')
-				inSpace = true
-			}
-			continue
-		}
-		inSpace = false
-		b.WriteRune(r)
-	}
-	return strings.TrimSpace(b.String())
-}

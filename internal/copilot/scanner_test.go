@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/danielfollent/chatgrep/internal/text"
 )
 
 func testdataDir(t *testing.T) string {
@@ -215,8 +217,8 @@ func TestScanSession_SnippetTruncation(t *testing.T) {
 	if len(results) != 1 {
 		t.Fatalf("got %d results, want 1", len(results))
 	}
-	if len(results[0].Snippet) > MaxSnippetLen+10 {
-		t.Errorf("snippet length %d exceeds max %d", len(results[0].Snippet), MaxSnippetLen)
+	if len(results[0].Snippet) > text.MaxSnippetLen+10 {
+		t.Errorf("snippet length %d exceeds max %d", len(results[0].Snippet), text.MaxSnippetLen)
 	}
 }
 

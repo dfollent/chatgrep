@@ -1,7 +1,10 @@
 package main
 
 import (
+	"os"
 	"testing"
+
+	"github.com/danielfollent/chatgrep/internal/provider"
 )
 
 func TestResolveProviderNames_Claude(t *testing.T) {
@@ -85,7 +88,7 @@ func TestParsePreviewTarget_NoColon(t *testing.T) {
 // We verify by passing an invalid agent: if the error is about the agent,
 // the empty query was accepted. If it says "usage", it was wrongly rejected.
 func TestRunSearch_EmptyQueryNotRejected(t *testing.T) {
-	err := runSearch("nonexistent", "")
+	err := runSearch("nonexistent", "", "", false)
 	if err == nil {
 		t.Fatal("expected error for invalid agent")
 	}
@@ -105,6 +108,69 @@ func searchStr(s, sub string) bool {
 		}
 	}
 	return false
+}
+
+func TestFilterByProject_PrefixMatch(t *testing.T) {
+	matches := []provider.Match{
+		{SessionID: "s1", CWD: "/home/user/project"},
+		{SessionID: "s2", CWD: "/home/user/project/sub"},
+		{SessionID: "s3", CWD: "/home/other/thing"},
+	}
+	got := filterByProject(matches, "/home/user/project")
+	if len(got) != 2 {
+		t.Errorf("got %d results, want 2", len(got))
+	}
+}
+
+func TestFilterByProject_Empty(t *testing.T) {
+	matches := []provider.Match{
+		{SessionID: "s1", CWD: "/foo"},
+	}
+	got := filterByProject(matches, "")
+	if len(got) != 1 {
+		t.Errorf("empty filter should return all, got %d", len(got))
+	}
+}
+
+func TestFilterByProject_NoMatch(t *testing.T) {
+	matches := []provider.Match{
+		{SessionID: "s1", CWD: "/home/user/project"},
+	}
+	got := filterByProject(matches, "/other")
+	if len(got) != 0 {
+		t.Errorf("got %d results, want 0", len(got))
+	}
+}
+
+func TestResolveProjectFlag_Dot(t *testing.T) {
+	resolved, err := resolveProjectFlag(".")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	cwd, _ := os.Getwd()
+	if resolved != cwd {
+		t.Errorf("got %q, want %q", resolved, cwd)
+	}
+}
+
+func TestResolveProjectFlag_Passthrough(t *testing.T) {
+	resolved, err := resolveProjectFlag("/some/path")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resolved != "/some/path" {
+		t.Errorf("got %q, want %q", resolved, "/some/path")
+	}
+}
+
+func TestResolveProjectFlag_Empty(t *testing.T) {
+	resolved, err := resolveProjectFlag("")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resolved != "" {
+		t.Errorf("got %q, want empty", resolved)
+	}
 }
 
 func TestBuildPreviewCmd(t *testing.T) {

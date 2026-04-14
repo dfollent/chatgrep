@@ -171,7 +171,125 @@ func TestRelativeTime(t *testing.T) {
 	}
 }
 
+func TestFormatPlainLine(t *testing.T) {
+	m := provider.Match{
+		ProviderName: "claude",
+		SessionID:    "sess-001",
+		UUID:         "msg-002",
+		Role:         "assistant",
+		Snippet:      "Check the null pointer",
+		Timestamp:    "2026-04-01T10:00:05.000Z",
+	}
+
+	line := FormatPlainLine(m)
+	// Format: provider:sessionID\ttimestamp\trole\tsnippet
+	parts := splitTabs(line)
+	if len(parts) != 4 {
+		t.Fatalf("got %d fields, want 4: %q", len(parts), line)
+	}
+	if parts[0] != "claude:sess-001" {
+		t.Errorf("field[0] = %q, want %q", parts[0], "claude:sess-001")
+	}
+	if parts[1] != "2026-04-01T10:00:05.000Z" {
+		t.Errorf("field[1] = %q, want timestamp", parts[1])
+	}
+	if parts[2] != "assistant" {
+		t.Errorf("field[2] = %q, want %q", parts[2], "assistant")
+	}
+	if parts[3] != "Check the null pointer" {
+		t.Errorf("field[3] = %q, want snippet", parts[3])
+	}
+}
+
+func TestFormatLine_ColorClaude(t *testing.T) {
+	ts := time.Now().Add(-2 * time.Hour).UTC().Format(time.RFC3339)
+	m := provider.Match{
+		ProviderName: "claude",
+		SessionID:    "sess-001",
+		UUID:         "msg-002",
+		Role:         "assistant",
+		Snippet:      "check the pointer",
+		Timestamp:    ts,
+	}
+
+	line := FormatLine(m)
+	display := splitTabs(line)[2]
+
+	// Provider "claude" wrapped in cyan
+	if !contains(display, "\033[36m") {
+		t.Errorf("expected cyan ANSI for claude provider in: %q", display)
+	}
+	// Timestamp wrapped in dim
+	if !contains(display, "\033[2m") {
+		t.Errorf("expected dim ANSI for timestamp in: %q", display)
+	}
+	// Assistant role wrapped in blue
+	if !contains(display, "\033[34m") {
+		t.Errorf("expected blue ANSI for assistant role in: %q", display)
+	}
+	// Snippet should NOT contain ANSI codes
+	snippetIdx := indexStr(display, "check the pointer")
+	if snippetIdx < 0 {
+		t.Fatalf("snippet not found in display: %q", display)
+	}
+	snippetPart := display[snippetIdx:]
+	if contains(snippetPart, "\033[") {
+		t.Errorf("snippet should not contain ANSI codes: %q", snippetPart)
+	}
+}
+
+func TestFormatLine_ColorCopilotUser(t *testing.T) {
+	ts := time.Now().Add(-10 * time.Minute).UTC().Format(time.RFC3339)
+	m := provider.Match{
+		ProviderName: "copilot",
+		SessionID:    "sess-c01",
+		UUID:         "evt-002",
+		Role:         "user",
+		Snippet:      "fix the bug",
+		Timestamp:    ts,
+	}
+
+	line := FormatLine(m)
+	display := splitTabs(line)[2]
+
+	// Provider "copilot" wrapped in magenta
+	if !contains(display, "\033[35m") {
+		t.Errorf("expected magenta ANSI for copilot provider in: %q", display)
+	}
+	// User role wrapped in green
+	if !contains(display, "\033[32m") {
+		t.Errorf("expected green ANSI for user role in: %q", display)
+	}
+}
+
+func TestFormatPlainLine_NoColor(t *testing.T) {
+	m := provider.Match{
+		ProviderName: "claude",
+		SessionID:    "sess-001",
+		UUID:         "msg-002",
+		Role:         "assistant",
+		Snippet:      "no color here",
+		Timestamp:    "2026-04-01T10:00:05.000Z",
+	}
+
+	line := FormatPlainLine(m)
+	if contains(line, "\033[") {
+		t.Errorf("plain line should not contain ANSI codes: %q", line)
+	}
+}
+
 // helpers
+
+func indexStr(s, sub string) int {
+	for i := 0; i <= len(s)-len(sub); i++ {
+		if s[i:i+len(sub)] == sub {
+			return i
+		}
+	}
+	return -1
+}
+
+// helpers (original)
 
 func splitTabs(s string) []string {
 	var parts []string

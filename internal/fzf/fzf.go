@@ -17,16 +17,34 @@ type Selection struct {
 	MsgUUID      string
 }
 
+// ANSI escape codes for fzf --ansi colored result lines.
+const (
+	ansiCyan    = "\033[36m"
+	ansiMagenta = "\033[35m"
+	ansiDim     = "\033[2m"
+	ansiGreen   = "\033[32m"
+	ansiBlue    = "\033[34m"
+	ansiReset   = "\033[0m"
+)
+
 // FormatLine builds a tab-delimited fzf input line from a search match.
 // Format: provider:sessionID\tmsgUUID\tprovider timeAgo R> snippet
 // Fields 1-2 are hidden via --with-nth=3.., but accessible via {1} {2} for preview.
+// Display field is ANSI-colored; fzf --ansi strips codes for width calculation.
 func FormatLine(m provider.Match) string {
 	field1 := m.ProviderName + ":" + m.SessionID
 	field2 := m.UUID
 
 	roleTag := "U>"
+	roleColor := ansiGreen
 	if m.Role == "assistant" {
 		roleTag = "A>"
+		roleColor = ansiBlue
+	}
+
+	provColor := ansiCyan
+	if m.ProviderName == "copilot" {
+		provColor = ansiMagenta
 	}
 
 	age := "?"
@@ -38,7 +56,15 @@ func FormatLine(m provider.Match) string {
 		age = relativeTime(t)
 	}
 
-	display := fmt.Sprintf("%-7s %8s %s %s", m.ProviderName, age, roleTag, m.Snippet)
+	// Pad plain text first, then wrap with ANSI so fzf column alignment is correct.
+	provStr := fmt.Sprintf("%-7s", m.ProviderName)
+	ageStr := fmt.Sprintf("%8s", age)
+
+	display := provColor + provStr + ansiReset + " " +
+		ansiDim + ageStr + ansiReset + " " +
+		roleColor + roleTag + ansiReset + " " +
+		m.Snippet
+
 	return field1 + "\t" + field2 + "\t" + display
 }
 
@@ -55,6 +81,12 @@ func relativeTime(t time.Time) string {
 		return fmt.Sprintf("%dh ago", int(d.Hours()))
 	}
 	return fmt.Sprintf("%dd ago", int(d.Hours()/24))
+}
+
+// FormatPlainLine builds a tab-delimited line for non-TTY / pipe output.
+// Format: provider:sessionID\ttimestamp\trole\tsnippet
+func FormatPlainLine(m provider.Match) string {
+	return m.ProviderName + ":" + m.SessionID + "\t" + m.Timestamp + "\t" + m.Role + "\t" + m.Snippet
 }
 
 // ParseSelection extracts provider, session, and message IDs from an fzf output line.
