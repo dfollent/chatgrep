@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/danielfollent/chatgrep/internal/claude"
+	"github.com/danielfollent/chatgrep/internal/codex"
 	"github.com/danielfollent/chatgrep/internal/copilot"
 	"github.com/danielfollent/chatgrep/internal/fzf"
 	"github.com/danielfollent/chatgrep/internal/preview"
@@ -32,7 +33,7 @@ func run() error {
 		showVersion bool
 	)
 
-	flag.StringVar(&agent, "agent", "all", "agent to search: claude, copilot, all")
+	flag.StringVar(&agent, "agent", "all", "agent to search: claude, copilot, codex, all")
 	flag.StringVar(&agent, "A", "all", "agent to search (shorthand)")
 	flag.StringVar(&project, "project", "", "filter to sessions in this directory (use . for cwd)")
 	flag.StringVar(&project, "p", "", "filter to sessions in this directory (shorthand)")
@@ -210,6 +211,13 @@ func makeProvider(name string) (provider.Provider, error) {
 			return nil, fmt.Errorf("copilot sessions dir not found: %s", dir)
 		}
 		return copilot.NewProvider(dir), nil
+	case "codex":
+		dir := codex.DefaultBaseDir()
+		sessionsDir := codex.SessionsDir(dir)
+		if _, err := os.Stat(sessionsDir); os.IsNotExist(err) {
+			return nil, fmt.Errorf("codex sessions dir not found: %s", sessionsDir)
+		}
+		return codex.NewProvider(dir), nil
 	default:
 		return nil, fmt.Errorf("unknown agent: %q", name)
 	}
@@ -221,10 +229,12 @@ func resolveProviderNames(agent string) ([]string, error) {
 		return []string{"claude"}, nil
 	case "copilot":
 		return []string{"copilot"}, nil
+	case "codex":
+		return []string{"codex"}, nil
 	case "all":
-		return []string{"claude", "copilot"}, nil
+		return []string{"claude", "copilot", "codex"}, nil
 	default:
-		return nil, fmt.Errorf("unknown agent: %q (use claude, copilot, or all)", agent)
+		return nil, fmt.Errorf("unknown agent: %q (use claude, copilot, codex, or all)", agent)
 	}
 }
 

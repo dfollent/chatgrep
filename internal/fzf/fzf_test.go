@@ -262,6 +262,30 @@ func TestFormatLine_ColorCopilotUser(t *testing.T) {
 	}
 }
 
+func TestFormatLine_ColorCodex(t *testing.T) {
+	ts := time.Now().Add(-10 * time.Minute).UTC().Format(time.RFC3339)
+	m := provider.Match{
+		ProviderName: "codex",
+		SessionID:    "sess-x01",
+		UUID:         "line-000123",
+		Role:         "assistant",
+		Snippet:      "recent codex reply",
+		Timestamp:    ts,
+	}
+
+	line := FormatLine(m)
+	display := splitTabs(line)[2]
+
+	// Provider "codex" wrapped in yellow
+	if !contains(display, "\033[33m") {
+		t.Errorf("expected yellow ANSI for codex provider in: %q", display)
+	}
+	// Assistant role stays blue
+	if !contains(display, "\033[34m") {
+		t.Errorf("expected blue ANSI for assistant role in: %q", display)
+	}
+}
+
 func TestFormatPlainLine_NoColor(t *testing.T) {
 	m := provider.Match{
 		ProviderName: "claude",

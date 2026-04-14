@@ -1,0 +1,7 @@
+{"timestamp":"2026-04-01T10:00:00.000Z","type":"session_meta","payload":{"id":"11111111-1111-1111-1111-111111111111","timestamp":"2026-04-01T10:00:00.000Z","cwd":"/home/user/project","originator":"codex-cli","cli_version":"0.1.0","source":"cli","model_provider":"openai"}}
+{"timestamp":"2026-04-01T10:00:01.000Z","type":"event_msg","payload":{"type":"user_message","message":"## My request for Codex:\nfix the login bug"}}
+{not valid json
+{"timestamp":"2026-04-01T10:00:03.000Z","type":"event_msg","payload":{"type":"agent_message","message":"I found the login bug in the auth middleware."}}
+{"timestamp":"2026-04-01T10:00:03.001Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"I found the login bug in the auth middleware."}]}}
+{"timestamp":"2026-04-01T10:00:04.000Z","type":"event_msg","payload":{"type":"agent_reasoning","text":"checking the auth flow"}}
+{"timestamp":"2026-04-01T10:00:05.000Z","type":"event_msg","payload":{"type":"agent_message","message":"The session token expires too early."}}

@@ -21,6 +21,7 @@ type Selection struct {
 const (
 	ansiCyan    = "\033[36m"
 	ansiMagenta = "\033[35m"
+	ansiYellow  = "\033[33m"
 	ansiDim     = "\033[2m"
 	ansiGreen   = "\033[32m"
 	ansiBlue    = "\033[34m"
@@ -45,6 +46,8 @@ func FormatLine(m provider.Match) string {
 	provColor := ansiCyan
 	if m.ProviderName == "copilot" {
 		provColor = ansiMagenta
+	} else if m.ProviderName == "codex" {
+		provColor = ansiYellow
 	}
 
 	age := "?"

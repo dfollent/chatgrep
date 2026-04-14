@@ -27,20 +27,30 @@ func TestResolveProviderNames_Copilot(t *testing.T) {
 	}
 }
 
+func TestResolveProviderNames_Codex(t *testing.T) {
+	names, err := resolveProviderNames("codex")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(names) != 1 || names[0] != "codex" {
+		t.Errorf("got %v, want [codex]", names)
+	}
+}
+
 func TestResolveProviderNames_All(t *testing.T) {
 	names, err := resolveProviderNames("all")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(names) != 2 {
-		t.Fatalf("got %d names, want 2", len(names))
+	if len(names) != 3 {
+		t.Fatalf("got %d names, want 3", len(names))
 	}
 	has := map[string]bool{}
 	for _, n := range names {
 		has[n] = true
 	}
-	if !has["claude"] || !has["copilot"] {
-		t.Errorf("got %v, want [claude copilot]", names)
+	if !has["claude"] || !has["copilot"] || !has["codex"] {
+		t.Errorf("got %v, want [claude copilot codex]", names)
 	}
 }
 
@@ -77,10 +87,35 @@ func TestParsePreviewTarget_Copilot(t *testing.T) {
 	}
 }
 
+func TestParsePreviewTarget_Codex(t *testing.T) {
+	prov, sess, err := parsePreviewTarget("codex:11111111-1111-1111-1111-111111111111")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if prov != "codex" {
+		t.Errorf("provider = %q, want %q", prov, "codex")
+	}
+	if sess != "11111111-1111-1111-1111-111111111111" {
+		t.Errorf("sessionID = %q, want %q", sess, "11111111-1111-1111-1111-111111111111")
+	}
+}
+
 func TestParsePreviewTarget_NoColon(t *testing.T) {
 	_, _, err := parsePreviewTarget("sess-001")
 	if err == nil {
 		t.Error("expected error for missing colon")
+	}
+}
+
+func TestMakeProvider_CodexMissingSessionsDir(t *testing.T) {
+	t.Setenv("CODEX_HOME", t.TempDir())
+
+	_, err := makeProvider("codex")
+	if err == nil {
+		t.Fatal("expected error for missing codex sessions dir")
+	}
+	if !contains(err.Error(), "codex sessions dir not found") {
+		t.Errorf("unexpected error: %v", err)
 	}
 }
 
