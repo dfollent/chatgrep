@@ -1,0 +1,3 @@
+{"type":"user","message":{"role":"user","content":"how do I fix this bug?"},"uuid":"msg-001","timestamp":"2026-04-01T10:00:00.000Z","sessionId":"sess-001","cwd":"/home/user/project","slug":"friendly-red-fox","isSidechain":false}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"You need to check the null pointer on line 42."}]},"uuid":"msg-002","timestamp":"2026-04-01T10:00:05.000Z","sessionId":"sess-001","cwd":"/home/user/project","slug":"friendly-red-fox","isSidechain":false}
+{"type":"user","message":{"role":"user","content":"thanks that worked"},"uuid":"msg-003","timestamp":"2026-04-01T10:01:00.000Z","sessionId":"sess-001","cwd":"/home/user/project","slug":"friendly-red-fox","isSidechain":false}

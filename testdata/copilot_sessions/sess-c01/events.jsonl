@@ -1,0 +1,7 @@
+{"type":"session.start","data":{"sessionId":"sess-c01","version":1,"producer":"copilot-agent","copilotVersion":"1.0.11","startTime":"2026-04-01T10:00:00.000Z","selectedModel":"gpt-5.3-codex","context":{"cwd":"/home/user/project","gitRoot":"/home/user/project","branch":"main","repository":"user/project","hostType":"github"}},"id":"evt-001","timestamp":"2026-04-01T10:00:00.000Z","parentId":null}
+{"type":"user.message","data":{"content":"fix the login bug"},"id":"evt-002","timestamp":"2026-04-01T10:00:05.000Z","parentId":"evt-001"}
+{"type":"assistant.turn_start","data":{},"id":"evt-003","timestamp":"2026-04-01T10:00:06.000Z","parentId":"evt-002"}
+{"type":"assistant.message","data":{"content":"I found the issue in the auth middleware. The session token was not being validated correctly."},"id":"evt-004","timestamp":"2026-04-01T10:00:10.000Z","parentId":"evt-003"}
+{"type":"assistant.turn_end","data":{},"id":"evt-005","timestamp":"2026-04-01T10:00:11.000Z","parentId":"evt-004"}
+{"type":"user.message","data":{"content":"thanks, can you also add tests?"},"id":"evt-006","timestamp":"2026-04-01T10:01:00.000Z","parentId":"evt-005"}
+{"type":"assistant.message","data":{"content":"Added unit tests for the auth middleware validation."},"id":"evt-007","timestamp":"2026-04-01T10:01:05.000Z","parentId":"evt-006"}

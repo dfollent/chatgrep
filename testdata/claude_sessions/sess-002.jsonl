@@ -1,0 +1,2 @@
+{"type":"user","message":{"role":"user","content":"deploy the service"},"uuid":"msg-010","timestamp":"2026-04-02T09:00:00.000Z","sessionId":"sess-002","cwd":"/home/user/deploy","isSidechain":false}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Running deploy script now."}]},"uuid":"msg-011","timestamp":"2026-04-02T09:00:03.000Z","sessionId":"sess-002","cwd":"/home/user/deploy","isSidechain":false}

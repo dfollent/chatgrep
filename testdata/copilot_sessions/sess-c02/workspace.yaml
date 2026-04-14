@@ -1,0 +1,11 @@
+id: sess-c02
+cwd: /home/user/deploy
+git_root: /home/user/deploy
+repository: user/deploy
+host_type: github
+branch: feature/deploy
+summary_count: 0
+created_at: 2026-04-02T09:00:00.000Z
+updated_at: 2026-04-02T09:00:17.000Z
+summary: |-
+  deploy the service to staging

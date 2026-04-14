@@ -1,0 +1,9 @@
+{"type":"session.start","data":{"sessionId":"sess-c02","version":1,"producer":"copilot-agent","copilotVersion":"1.0.11","startTime":"2026-04-02T09:00:00.000Z","selectedModel":"gpt-5.3-codex","context":{"cwd":"/home/user/deploy","gitRoot":"/home/user/deploy","branch":"feature/deploy"}},"id":"evt-010","timestamp":"2026-04-02T09:00:00.000Z","parentId":null}
+{"type":"user.message","data":{"content":"deploy the service to staging"},"id":"evt-011","timestamp":"2026-04-02T09:00:05.000Z","parentId":"evt-010"}
+{"type":"assistant.turn_start","data":{},"id":"evt-012","timestamp":"2026-04-02T09:00:06.000Z","parentId":"evt-011"}
+{"type":"tool.execution_start","data":{"toolName":"bash","input":"kubectl apply -f deploy.yaml"},"id":"evt-013","timestamp":"2026-04-02T09:00:07.000Z","parentId":"evt-012"}
+{"type":"tool.execution_complete","data":{"toolName":"bash","output":"deployment applied"},"id":"evt-014","timestamp":"2026-04-02T09:00:10.000Z","parentId":"evt-013"}
+{"type":"tool.execution_start","data":{"toolName":"bash","input":"kubectl rollout status"},"id":"evt-015","timestamp":"2026-04-02T09:00:11.000Z","parentId":"evt-014"}
+{"type":"tool.execution_complete","data":{"toolName":"bash","output":"rollout complete"},"id":"evt-016","timestamp":"2026-04-02T09:00:15.000Z","parentId":"evt-015"}
+{"type":"assistant.message","data":{"content":"Deployment to staging is complete. All pods are healthy."},"id":"evt-017","timestamp":"2026-04-02T09:00:16.000Z","parentId":"evt-016"}
+{"type":"assistant.turn_end","data":{},"id":"evt-018","timestamp":"2026-04-02T09:00:17.000Z","parentId":"evt-017"}

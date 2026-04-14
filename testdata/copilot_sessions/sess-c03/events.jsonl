@@ -1,0 +1,2 @@
+{"type":"session.start","data":{"sessionId":"sess-c03","version":1,"producer":"copilot-agent","copilotVersion":"1.0.11","startTime":"2026-04-03T08:00:00.000Z","selectedModel":"gpt-5.3-codex","context":{"cwd":"/home/user/empty"}},"id":"evt-020","timestamp":"2026-04-03T08:00:00.000Z","parentId":null}
+{"type":"session.shutdown","data":{},"id":"evt-021","timestamp":"2026-04-03T08:00:01.000Z","parentId":"evt-020"}
