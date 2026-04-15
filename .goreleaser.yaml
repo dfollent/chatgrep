@@ -1,0 +1,38 @@
+version: 2
+
+builds:
+  - main: ./cmd/chatgrep
+    binary: chatgrep
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - formats: [tar.gz]
+    name_template: "chatgrep_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+# brews is deprecated in goreleaser v2.10+ but homebrew_casks is for GUI apps.
+# Formula is the correct Homebrew packaging for a CLI binary.
+brews:
+  - directory: Formula
+    repository:
+      owner: dfollent
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    homepage: "https://github.com/dfollent/chatgrep"
+    description: "Fast fuzzy search across Claude Code, Copilot, and Codex session history"
+    license: "MIT"
+    test: |
+      system "#{bin}/chatgrep", "--version"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
