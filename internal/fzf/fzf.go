@@ -124,6 +124,7 @@ func Run(lines []string, previewCmd string, binaryPath string, query string) (st
 		"--delimiter=\t",
 		"--with-nth=3..",
 		"--ansi",
+		"--highlight-line",
 		"--tiebreak=index",
 	}
 

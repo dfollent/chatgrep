@@ -56,7 +56,7 @@ func ScanSession(path string, query string, maxResults int) ([]SearchResult, err
 	var results []SearchResult
 
 	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 0, 1024*1024), 1024*1024) // 1MB buffer
+	scanner.Buffer(make([]byte, 0, 10*1024*1024), 10*1024*1024)
 
 	for scanner.Scan() {
 		if len(results) >= maxResults {
@@ -113,7 +113,6 @@ func SearchAll(baseDir string, query string, numWorkers int) ([]SearchResult, er
 
 	var mu sync.Mutex
 	var allResults []SearchResult
-	var firstErr error
 
 	var wg sync.WaitGroup
 	for i := 0; i < numWorkers; i++ {
@@ -122,10 +121,10 @@ func SearchAll(baseDir string, query string, numWorkers int) ([]SearchResult, er
 			defer wg.Done()
 			for s := range ch {
 				results, err := ScanSession(s.FilePath, query, 50)
-				mu.Lock()
-				if err != nil && firstErr == nil {
-					firstErr = err
+				if err != nil {
+					continue
 				}
+				mu.Lock()
 				allResults = append(allResults, results...)
 				mu.Unlock()
 			}
@@ -133,7 +132,7 @@ func SearchAll(baseDir string, query string, numWorkers int) ([]SearchResult, er
 	}
 
 	wg.Wait()
-	return allResults, firstErr
+	return allResults, nil
 }
 
 // ReadMessages reads all parseable messages from a session file.
@@ -147,7 +146,7 @@ func ReadMessages(path string) ([]ParsedMessage, error) {
 
 	var msgs []ParsedMessage
 	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 0, 1024*1024), 1024*1024)
+	scanner.Buffer(make([]byte, 0, 10*1024*1024), 10*1024*1024)
 
 	for scanner.Scan() {
 		msg := ParseLine(scanner.Bytes())

@@ -84,7 +84,6 @@ func (p *Provider) Search(query string, numWorkers int) ([]provider.Match, error
 
 	var mu sync.Mutex
 	var matches []provider.Match
-	var firstErr error
 
 	var wg sync.WaitGroup
 	for i := 0; i < numWorkers; i++ {
@@ -93,10 +92,10 @@ func (p *Provider) Search(query string, numWorkers int) ([]provider.Match, error
 			defer wg.Done()
 			for s := range ch {
 				results, err := ScanSession(s.FilePath, query, 50)
-				mu.Lock()
-				if err != nil && firstErr == nil {
-					firstErr = err
+				if err != nil {
+					continue
 				}
+				mu.Lock()
 				for _, r := range results {
 					matches = append(matches, provider.Match{
 						ProviderName: "claude",
@@ -115,7 +114,7 @@ func (p *Provider) Search(query string, numWorkers int) ([]provider.Match, error
 	}
 
 	wg.Wait()
-	return matches, firstErr
+	return matches, nil
 }
 
 func (p *Provider) PreviewContext(sessionID, msgUUID string, windowSize int) ([]provider.PreviewMessage, error) {

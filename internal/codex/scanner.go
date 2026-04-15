@@ -79,7 +79,7 @@ func ScanSession(path string, query string, maxResults int) ([]SearchResult, err
 	var results []SearchResult
 
 	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 0, 1024*1024), 1024*1024)
+	scanner.Buffer(make([]byte, 0, 10*1024*1024), 10*1024*1024)
 
 	lineNum := 0
 	var prev *ParsedMessage
@@ -135,7 +135,6 @@ func SearchAll(baseDir string, query string, numWorkers int) ([]SearchResult, er
 
 	var mu sync.Mutex
 	var allResults []SearchResult
-	var firstErr error
 
 	var wg sync.WaitGroup
 	for i := 0; i < numWorkers; i++ {
@@ -144,10 +143,10 @@ func SearchAll(baseDir string, query string, numWorkers int) ([]SearchResult, er
 			defer wg.Done()
 			for s := range ch {
 				results, err := ScanSession(s.RolloutPath, query, 50)
-				mu.Lock()
-				if err != nil && firstErr == nil {
-					firstErr = err
+				if err != nil {
+					continue
 				}
+				mu.Lock()
 				for i := range results {
 					results[i].SessionID = s.ID
 				}
@@ -158,7 +157,7 @@ func SearchAll(baseDir string, query string, numWorkers int) ([]SearchResult, er
 	}
 
 	wg.Wait()
-	return allResults, firstErr
+	return allResults, nil
 }
 
 // ReadMessages reads all visible chat messages from a rollout file.
@@ -171,7 +170,7 @@ func ReadMessages(path string) ([]ParsedMessage, error) {
 
 	var msgs []ParsedMessage
 	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 0, 1024*1024), 1024*1024)
+	scanner.Buffer(make([]byte, 0, 10*1024*1024), 10*1024*1024)
 
 	lineNum := 0
 	var prev *ParsedMessage
@@ -207,7 +206,7 @@ func readSessionSummary(path string) (Session, error) {
 	session.RolloutPath = path
 
 	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 0, 1024*1024), 1024*1024)
+	scanner.Buffer(make([]byte, 0, 10*1024*1024), 10*1024*1024)
 
 	lineNum := 0
 	for scanner.Scan() {

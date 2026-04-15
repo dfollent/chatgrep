@@ -63,6 +63,12 @@ Limit results to the current repo:
 chatgrep --project . "auth middleware"
 ```
 
+Jump straight into the top match:
+
+```bash
+eval "$(chatgrep --first "auth middleware")"
+```
+
 Use in scripts:
 
 ```bash
@@ -83,6 +89,7 @@ If `query` is omitted, `chatgrep` becomes a session browser.
 | --- | --- |
 | `-A`, `--agent` | `claude`, `copilot`, `codex`, or `all` |
 | `-p`, `--project` | Filter sessions by working-directory prefix. Use `.` for current directory |
+| `--first` | Print resume command for the top match and exit |
 | `--plain` | Plain text output; disables `fzf` |
 | `--version` | Print version |
 

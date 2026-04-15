@@ -29,6 +29,7 @@ func run() error {
 		agent       string
 		project     string
 		plain       bool
+		first       bool
 		previewMode bool
 		showVersion bool
 	)
@@ -38,6 +39,7 @@ func run() error {
 	flag.StringVar(&project, "project", "", "filter to sessions in this directory (use . for cwd)")
 	flag.StringVar(&project, "p", "", "filter to sessions in this directory (shorthand)")
 	flag.BoolVar(&plain, "plain", false, "plain text output (no fzf)")
+	flag.BoolVar(&first, "first", false, "print resume command for top match and exit")
 	flag.BoolVar(&previewMode, "preview", false, "internal: render preview for fzf")
 	flag.BoolVar(&showVersion, "version", false, "print version and exit")
 	flag.Parse()
@@ -54,6 +56,10 @@ func run() error {
 	projectFilter, err := resolveProjectFlag(project)
 	if err != nil {
 		return err
+	}
+
+	if first {
+		return runFirst(agent, flag.Arg(0), projectFilter)
 	}
 
 	pipePlain := plain || !isTTY(os.Stdout)
@@ -194,6 +200,66 @@ func runSearch(agent, query, projectFilter string, plain bool) error {
 
 	fmt.Println(p.ResumeCommand(sel.SessionID, cwd))
 	return nil
+}
+
+// runFirst prints the resume command for the top match (newest) and exits.
+func runFirst(agent, query, projectFilter string) error {
+	names, err := resolveProviderNames(agent)
+	if err != nil {
+		return err
+	}
+
+	providers := make(map[string]provider.Provider)
+	for _, name := range names {
+		p, err := makeProvider(name)
+		if err != nil {
+			if agent == "all" {
+				continue
+			}
+			return err
+		}
+		providers[name] = p
+	}
+
+	var allMatches []provider.Match
+	for _, p := range providers {
+		matches, err := p.Search(query, 8)
+		if err != nil {
+			return fmt.Errorf("%s: %w", p.Name(), err)
+		}
+		allMatches = append(allMatches, matches...)
+	}
+
+	allMatches = filterByProject(allMatches, projectFilter)
+
+	if len(allMatches) == 0 {
+		if query != "" {
+			fmt.Fprintf(os.Stderr, "no matches for %q\n", query)
+		} else {
+			fmt.Fprintln(os.Stderr, "no sessions found")
+		}
+		return nil
+	}
+
+	sort.Slice(allMatches, func(i, j int) bool {
+		return allMatches[i].Timestamp > allMatches[j].Timestamp
+	})
+
+	cmd := resumeCommandForMatch(allMatches[0], providers)
+	if cmd == "" {
+		return fmt.Errorf("unknown provider: %s", allMatches[0].ProviderName)
+	}
+	fmt.Println(cmd)
+	return nil
+}
+
+// resumeCommandForMatch builds a resume command from a match and its provider.
+func resumeCommandForMatch(m provider.Match, providers map[string]provider.Provider) string {
+	p, ok := providers[m.ProviderName]
+	if !ok {
+		return ""
+	}
+	return p.ResumeCommand(m.SessionID, m.CWD)
 }
 
 // makeProvider creates a provider by name, validating that its config dir exists.

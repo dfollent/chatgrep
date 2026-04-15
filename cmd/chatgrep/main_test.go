@@ -215,3 +215,54 @@ func TestBuildPreviewCmd(t *testing.T) {
 		t.Errorf("got %q, want %q", cmd, want)
 	}
 }
+
+func TestResumeCommandForMatch_WithCWD(t *testing.T) {
+	matches := []provider.Match{
+		{
+			ProviderName: "claude",
+			SessionID:    "sess-001",
+			CWD:          "/home/user/project",
+			Snippet:      "some text",
+		},
+	}
+	providers := map[string]provider.Provider{
+		"claude": &fakeProvider{name: "claude", resumeCmd: "cd /home/user/project && claude --resume sess-001"},
+	}
+
+	got := resumeCommandForMatch(matches[0], providers)
+	want := "cd /home/user/project && claude --resume sess-001"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestResumeCommandForMatch_UnknownProvider(t *testing.T) {
+	m := provider.Match{ProviderName: "unknown", SessionID: "s1"}
+	got := resumeCommandForMatch(m, map[string]provider.Provider{})
+	if got != "" {
+		t.Errorf("expected empty string for unknown provider, got %q", got)
+	}
+}
+
+// fakeProvider implements provider.Provider for testing.
+type fakeProvider struct {
+	name      string
+	resumeCmd string
+}
+
+func (f *fakeProvider) Name() string { return f.name }
+func (f *fakeProvider) Discover() ([]provider.SessionInfo, error) {
+	return nil, nil
+}
+func (f *fakeProvider) Search(query string, numWorkers int) ([]provider.Match, error) {
+	return nil, nil
+}
+func (f *fakeProvider) PreviewContext(sessionID, msgUUID string, windowSize int) ([]provider.PreviewMessage, error) {
+	return nil, nil
+}
+func (f *fakeProvider) ResumeCommand(sessionID, cwd string) string {
+	return f.resumeCmd
+}
+func (f *fakeProvider) SessionFile(sessionID string) string {
+	return ""
+}

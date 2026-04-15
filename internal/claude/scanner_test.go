@@ -355,6 +355,50 @@ func TestScanSession_SkipsSidechain(t *testing.T) {
 	}
 }
 
+func TestScanSession_LargeLineDoesNotFail(t *testing.T) {
+	dir := t.TempDir()
+	// 2MB message content - exceeds the old 1MB buffer
+	bigContent := strings.Repeat("x", 2*1024*1024)
+	lines := `{"type":"user","message":{"role":"user","content":"` + bigContent + `"},"uuid":"msg-big","timestamp":"2026-04-01T10:00:00.000Z","sessionId":"sess-big","cwd":"/tmp","isSidechain":false}` + "\n"
+	lines += `{"type":"user","message":{"role":"user","content":"small findable message"},"uuid":"msg-small","timestamp":"2026-04-01T10:00:01.000Z","sessionId":"sess-big","cwd":"/tmp","isSidechain":false}` + "\n"
+	path := filepath.Join(dir, "big.jsonl")
+	if err := os.WriteFile(path, []byte(lines), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	results, err := ScanSession(path, "findable", 10)
+	if err != nil {
+		t.Fatalf("ScanSession should not fail on large lines: %v", err)
+	}
+	if len(results) != 1 {
+		t.Errorf("got %d results, want 1", len(results))
+	}
+}
+
+func TestSearchAll_SkipsBadSessions(t *testing.T) {
+	dir := t.TempDir()
+
+	// One good session
+	good := `{"type":"user","message":{"role":"user","content":"good message"},"uuid":"msg-g","timestamp":"2026-04-01T10:00:00.000Z","sessionId":"sess-good","cwd":"/tmp","isSidechain":false}` + "\n"
+	if err := os.WriteFile(filepath.Join(dir, "good.jsonl"), []byte(good), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// One session with a line exceeding 10MB (will fail even with bumped buffer)
+	hugeLine := `{"type":"user","message":{"role":"user","content":"` + strings.Repeat("x", 11*1024*1024) + `"},"uuid":"msg-h","timestamp":"2026-04-01T10:00:00.000Z","sessionId":"sess-huge","cwd":"/tmp","isSidechain":false}` + "\n"
+	if err := os.WriteFile(filepath.Join(dir, "huge.jsonl"), []byte(hugeLine), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	results, err := SearchAll(dir, "good", 2)
+	if err != nil {
+		t.Fatalf("SearchAll should not fail when one session has errors: %v", err)
+	}
+	if len(results) != 1 {
+		t.Errorf("got %d results, want 1 from the good session", len(results))
+	}
+}
+
 func TestSearchAll_EmptyQuery(t *testing.T) {
 	dir := testdataDir(t)
 	// Empty query should return all messages
