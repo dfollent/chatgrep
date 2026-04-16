@@ -34,14 +34,23 @@ func run() error {
 		showVersion bool
 	)
 
-	flag.StringVar(&agent, "agent", "all", "agent to search: claude, copilot, codex, all")
-	flag.StringVar(&agent, "A", "all", "agent to search (shorthand)")
-	flag.StringVar(&project, "project", "", "filter to sessions in this directory (use . for cwd)")
-	flag.StringVar(&project, "p", "", "filter to sessions in this directory (shorthand)")
-	flag.BoolVar(&plain, "plain", false, "plain text output (no fzf)")
-	flag.BoolVar(&first, "first", false, "print resume command for top match and exit")
-	flag.BoolVar(&previewMode, "preview", false, "internal: render preview for fzf")
-	flag.BoolVar(&showVersion, "version", false, "print version and exit")
+	flag.StringVar(&agent, "agent", "all", "")
+	flag.StringVar(&agent, "a", "all", "")
+	flag.StringVar(&project, "project", "", "")
+	flag.StringVar(&project, "p", "", "")
+	flag.BoolVar(&plain, "plain", false, "")
+	flag.BoolVar(&first, "first", false, "")
+	flag.BoolVar(&first, "f", false, "")
+	flag.BoolVar(&previewMode, "preview", false, "")
+	flag.BoolVar(&showVersion, "version", false, "")
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: chatgrep [flags] <query>\n\nFlags:\n")
+		fmt.Fprintf(os.Stderr, "  -a, --agent <name>     agent to search: claude, copilot, codex, all (default \"all\")\n")
+		fmt.Fprintf(os.Stderr, "  -p, --project <path>   filter to sessions in this directory (use . for cwd)\n")
+		fmt.Fprintf(os.Stderr, "      --plain            plain text output (no fzf)\n")
+		fmt.Fprintf(os.Stderr, "  -f, --first            print resume command for first match and exit\n")
+		fmt.Fprintf(os.Stderr, "      --version          print version and exit\n")
+	}
 	flag.Parse()
 
 	if showVersion {
