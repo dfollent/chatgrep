@@ -4,8 +4,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/danielfollent/chatgrep/internal/color"
 	"github.com/danielfollent/chatgrep/internal/provider"
 )
+
+func defaultTheme() *color.Theme {
+	return color.DefaultTheme()
+}
 
 func TestFormatLine_ClaudeWithTimestamp(t *testing.T) {
 	ts := time.Now().Add(-2 * time.Hour).UTC().Format(time.RFC3339)
@@ -19,7 +24,7 @@ func TestFormatLine_ClaudeWithTimestamp(t *testing.T) {
 		Slug:         "friendly-red-fox",
 	}
 
-	line := FormatLine(m)
+	line := FormatLine(m, defaultTheme())
 	parts := splitTabs(line)
 	if len(parts) < 3 {
 		t.Fatalf("expected at least 3 tab-delimited fields, got %d: %q", len(parts), line)
@@ -31,11 +36,9 @@ func TestFormatLine_ClaudeWithTimestamp(t *testing.T) {
 		t.Errorf("field[1] = %q, want %q", parts[1], "msg-002")
 	}
 	display := parts[2]
-	// Should contain provider name, relative time, role tag, and snippet
 	if !containsAll(display, "claude", "ago", "A>", "null pointer") {
 		t.Errorf("display missing expected content: %q", display)
 	}
-	// Should NOT contain the slug
 	if contains(display, "friendly-red-fox") {
 		t.Errorf("display should not contain slug: %q", display)
 	}
@@ -52,7 +55,7 @@ func TestFormatLine_CopilotProvider(t *testing.T) {
 		Timestamp:    ts,
 	}
 
-	line := FormatLine(m)
+	line := FormatLine(m, defaultTheme())
 	parts := splitTabs(line)
 	if parts[0] != "copilot:sess-c01" {
 		t.Errorf("field[0] = %q, want %q", parts[0], "copilot:sess-c01")
@@ -64,7 +67,6 @@ func TestFormatLine_CopilotProvider(t *testing.T) {
 }
 
 func TestFormatLine_OldTimestamp(t *testing.T) {
-	// 3 days ago should show "3d ago"
 	ts := time.Now().Add(-3 * 24 * time.Hour).UTC().Format(time.RFC3339)
 	m := provider.Match{
 		ProviderName: "claude",
@@ -75,7 +77,7 @@ func TestFormatLine_OldTimestamp(t *testing.T) {
 		Timestamp:    ts,
 	}
 
-	line := FormatLine(m)
+	line := FormatLine(m, defaultTheme())
 	parts := splitTabs(line)
 	display := parts[2]
 	if !containsAll(display, "3d ago") {
@@ -84,7 +86,6 @@ func TestFormatLine_OldTimestamp(t *testing.T) {
 }
 
 func TestFormatLine_FallbackTimestamp(t *testing.T) {
-	// Malformed timestamp should not crash
 	m := provider.Match{
 		ProviderName: "claude",
 		SessionID:    "sess-001",
@@ -94,7 +95,7 @@ func TestFormatLine_FallbackTimestamp(t *testing.T) {
 		Timestamp:    "not-a-timestamp",
 	}
 
-	line := FormatLine(m)
+	line := FormatLine(m, defaultTheme())
 	parts := splitTabs(line)
 	if len(parts) < 3 {
 		t.Fatalf("expected at least 3 fields, got %d", len(parts))
@@ -182,7 +183,6 @@ func TestFormatPlainLine(t *testing.T) {
 	}
 
 	line := FormatPlainLine(m)
-	// Format: provider:sessionID\ttimestamp\trole\tsnippet
 	parts := splitTabs(line)
 	if len(parts) != 4 {
 		t.Fatalf("got %d fields, want 4: %q", len(parts), line)
@@ -212,7 +212,7 @@ func TestFormatLine_ColorClaude(t *testing.T) {
 		Timestamp:    ts,
 	}
 
-	line := FormatLine(m)
+	line := FormatLine(m, defaultTheme())
 	display := splitTabs(line)[2]
 
 	// Provider "claude" wrapped in cyan
@@ -249,7 +249,7 @@ func TestFormatLine_ColorCopilotUser(t *testing.T) {
 		Timestamp:    ts,
 	}
 
-	line := FormatLine(m)
+	line := FormatLine(m, defaultTheme())
 	display := splitTabs(line)[2]
 
 	// Provider "copilot" wrapped in magenta
@@ -273,7 +273,7 @@ func TestFormatLine_ColorCodex(t *testing.T) {
 		Timestamp:    ts,
 	}
 
-	line := FormatLine(m)
+	line := FormatLine(m, defaultTheme())
 	display := splitTabs(line)[2]
 
 	// Provider "codex" wrapped in yellow
@@ -302,6 +302,76 @@ func TestFormatPlainLine_NoColor(t *testing.T) {
 	}
 }
 
+func TestFormatLine_NoColor(t *testing.T) {
+	ts := time.Now().Add(-2 * time.Hour).UTC().Format(time.RFC3339)
+	m := provider.Match{
+		ProviderName: "claude",
+		SessionID:    "sess-001",
+		UUID:         "msg-002",
+		Role:         "assistant",
+		Snippet:      "check the pointer",
+		Timestamp:    ts,
+	}
+
+	th := defaultTheme()
+	th.Enabled = false
+	line := FormatLine(m, th)
+	display := splitTabs(line)[2]
+
+	if contains(display, "\033[") {
+		t.Errorf("disabled theme should produce no ANSI codes: %q", display)
+	}
+	if !containsAll(display, "claude", "ago", "A>", "check the pointer") {
+		t.Errorf("display missing expected content: %q", display)
+	}
+}
+
+func TestFormatLine_CustomProviderColor(t *testing.T) {
+	ts := time.Now().Add(-2 * time.Hour).UTC().Format(time.RFC3339)
+	m := provider.Match{
+		ProviderName: "claude",
+		SessionID:    "sess-001",
+		UUID:         "msg-002",
+		Role:         "assistant",
+		Snippet:      "test",
+		Timestamp:    ts,
+	}
+
+	th := defaultTheme()
+	th.ProviderClaude.FG = 1 // red instead of cyan
+	line := FormatLine(m, th)
+	display := splitTabs(line)[2]
+
+	// Should have red, not cyan
+	if !contains(display, "\033[31m") {
+		t.Errorf("expected red ANSI for overridden claude provider: %q", display)
+	}
+	if contains(display, "\033[36m") {
+		t.Errorf("should not have cyan after override: %q", display)
+	}
+}
+
+func TestFormatLine_CustomRoleColor(t *testing.T) {
+	ts := time.Now().Add(-2 * time.Hour).UTC().Format(time.RFC3339)
+	m := provider.Match{
+		ProviderName: "claude",
+		SessionID:    "sess-001",
+		UUID:         "msg-002",
+		Role:         "user",
+		Snippet:      "test",
+		Timestamp:    ts,
+	}
+
+	th := defaultTheme()
+	th.RoleUser.FG = 1 // red instead of green
+	line := FormatLine(m, th)
+	display := splitTabs(line)[2]
+
+	if !contains(display, "\033[31m") {
+		t.Errorf("expected red ANSI for overridden user role: %q", display)
+	}
+}
+
 // helpers
 
 func indexStr(s, sub string) int {
@@ -312,8 +382,6 @@ func indexStr(s, sub string) int {
 	}
 	return -1
 }
-
-// helpers (original)
 
 func splitTabs(s string) []string {
 	var parts []string

@@ -91,6 +91,8 @@ If `query` is omitted, `chatgrep` becomes a session browser.
 | `-p`, `--project` | Filter sessions by working-directory prefix. Use `.` for current directory |
 | `--first` | Print resume command for the top match and exit |
 | `--plain` | Plain text output; disables `fzf` |
+| `--color` | Color output: `auto`, `always`, `never` (default `auto`) |
+| `--colors` | Customize colors (repeatable). See [Colors](#colors) |
 | `--version` | Print version |
 
 ### Query Semantics
@@ -140,6 +142,64 @@ Example uses:
 chatgrep --plain "panic" | cut -f1
 chatgrep --plain --agent codex "staging deploy" | head
 ```
+
+## Colors
+
+Color behavior follows the same conventions as `ripgrep`, `grep`, and `git`.
+
+### --color flag
+
+| Value | Behavior |
+| --- | --- |
+| `auto` | Color when stdout is a TTY (default) |
+| `always` | Always emit ANSI colors, even when piped |
+| `never` | No ANSI color codes |
+
+### NO_COLOR
+
+Setting the `NO_COLOR` environment variable (any non-empty value) disables colors in `auto` mode. `--color=always` overrides it. See [no-color.org](https://no-color.org).
+
+### Custom colors
+
+Override individual elements with `--colors 'element:attribute:value'`. The flag can be repeated.
+
+```bash
+chatgrep --colors 'role.user:fg:red' --colors 'timestamp:style:bold' "query"
+```
+
+For persistent customization, set `CHATGREP_COLORS` with semicolon-separated specs:
+
+```bash
+export CHATGREP_COLORS='role.user:fg:red;provider.claude:fg:white;timestamp:style:bold'
+```
+
+`--colors` flags take precedence over `CHATGREP_COLORS`.
+
+### Elements
+
+| Element | Default | Description |
+| --- | --- | --- |
+| `provider.claude` | fg:cyan | Claude provider name |
+| `provider.copilot` | fg:magenta | Copilot provider name |
+| `provider.codex` | fg:yellow | Codex provider name |
+| `role.user` | fg:green | User message indicator |
+| `role.assistant` | fg:blue | Assistant message indicator |
+| `timestamp` | style:dim | Timestamp display |
+| `marker` | fg:yellow, style:bold | Preview target marker (`>>>`) |
+| `separator` | style:dim | Preview separator line |
+| `match` | (none) | Reserved for future use |
+
+### Attributes
+
+- `fg` - foreground color
+- `bg` - background color
+- `style` - text style: `bold`, `dim`, `underline`, `italic`, `nobold`, `nodim`, `nounderline`, `noitalic`
+
+### Color values
+
+Named colors: `black`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`
+
+256-color palette: `0`-`255`
 
 ## How It Works
 

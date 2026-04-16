@@ -27,6 +27,8 @@ brews:
     homepage: "https://github.com/dfollent/chatgrep"
     description: "Fast fuzzy search across Claude Code, Copilot, and Codex session history"
     license: "MIT"
+    dependencies:
+      - name: fzf
     test: |
       system "#{bin}/chatgrep", "--version"
 

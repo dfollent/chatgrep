@@ -9,6 +9,7 @@ import (
 
 	"github.com/danielfollent/chatgrep/internal/claude"
 	"github.com/danielfollent/chatgrep/internal/codex"
+	"github.com/danielfollent/chatgrep/internal/color"
 	"github.com/danielfollent/chatgrep/internal/copilot"
 	"github.com/danielfollent/chatgrep/internal/fzf"
 	"github.com/danielfollent/chatgrep/internal/preview"
@@ -16,6 +17,12 @@ import (
 )
 
 var version = "dev"
+
+// multiStringFlag allows a flag to be specified multiple times.
+type multiStringFlag []string
+
+func (m *multiStringFlag) String() string     { return strings.Join(*m, ", ") }
+func (m *multiStringFlag) Set(v string) error { *m = append(*m, v); return nil }
 
 func main() {
 	if err := run(); err != nil {
@@ -32,6 +39,8 @@ func run() error {
 		first       bool
 		previewMode bool
 		showVersion bool
+		colorMode   string
+		colorSpecs  multiStringFlag
 	)
 
 	flag.StringVar(&agent, "agent", "all", "")
@@ -43,12 +52,16 @@ func run() error {
 	flag.BoolVar(&first, "f", false, "")
 	flag.BoolVar(&previewMode, "preview", false, "")
 	flag.BoolVar(&showVersion, "version", false, "")
+	flag.StringVar(&colorMode, "color", "auto", "")
+	flag.Var(&colorSpecs, "colors", "")
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: chatgrep [flags] <query>\n\nFlags:\n")
 		fmt.Fprintf(os.Stderr, "  -a, --agent <name>     agent to search: claude, copilot, codex, all (default \"all\")\n")
 		fmt.Fprintf(os.Stderr, "  -p, --project <path>   filter to sessions in this directory (use . for cwd)\n")
 		fmt.Fprintf(os.Stderr, "      --plain            plain text output (no fzf)\n")
 		fmt.Fprintf(os.Stderr, "  -f, --first            print resume command for first match and exit\n")
+		fmt.Fprintf(os.Stderr, "      --color <when>     color output: auto, always, never (default \"auto\")\n")
+		fmt.Fprintf(os.Stderr, "      --colors <spec>    customize colors: 'element:attr:value' (repeatable)\n")
 		fmt.Fprintf(os.Stderr, "      --version          print version and exit\n")
 	}
 	flag.Parse()
@@ -58,8 +71,14 @@ func run() error {
 		return nil
 	}
 
+	// Build theme from flags and env
+	theme, err := buildTheme(colorMode, colorSpecs)
+	if err != nil {
+		return err
+	}
+
 	if previewMode {
-		return runPreview(flag.Args())
+		return runPreview(flag.Args(), theme)
 	}
 
 	projectFilter, err := resolveProjectFlag(project)
@@ -72,12 +91,36 @@ func run() error {
 	}
 
 	pipePlain := plain || !isTTY(os.Stdout)
-	return runSearch(agent, flag.Arg(0), projectFilter, pipePlain)
+	return runSearch(agent, flag.Arg(0), projectFilter, pipePlain, theme, colorMode, colorSpecs)
+}
+
+// buildTheme constructs a Theme from the --color flag, CHATGREP_COLORS env, and --colors flags.
+func buildTheme(colorMode string, colorSpecs []string) (*color.Theme, error) {
+	isTerminal := isTTY(os.Stdout)
+	enabled := color.ResolveEnabled(colorMode, isTerminal)
+
+	theme := color.DefaultTheme()
+	theme.Enabled = enabled
+
+	// CHATGREP_COLORS env (lower precedence)
+	if envColors := os.Getenv("CHATGREP_COLORS"); envColors != "" {
+		specs := strings.Split(envColors, ";")
+		if err := theme.ApplySpecs(specs); err != nil {
+			return nil, fmt.Errorf("CHATGREP_COLORS: %w", err)
+		}
+	}
+
+	// --colors flags (higher precedence, overrides env)
+	if err := theme.ApplySpecs(colorSpecs); err != nil {
+		return nil, fmt.Errorf("--colors: %w", err)
+	}
+
+	return theme, nil
 }
 
 // runPreview handles the --preview callback from fzf.
 // Args: [provider:sessionID, msgUUID]
-func runPreview(args []string) error {
+func runPreview(args []string, theme *color.Theme) error {
 	if len(args) < 2 {
 		return fmt.Errorf("--preview requires 2 args: provider:sessionID msgUUID")
 	}
@@ -97,12 +140,12 @@ func runPreview(args []string) error {
 		return err
 	}
 
-	fmt.Print(preview.Render(msgs, args[1]))
+	fmt.Print(preview.Render(msgs, args[1], theme))
 	return nil
 }
 
 // runSearch is the main interactive flow: search, fzf, output resume command.
-func runSearch(agent, query, projectFilter string, plain bool) error {
+func runSearch(agent, query, projectFilter string, plain bool, theme *color.Theme, colorMode string, colorSpecs []string) error {
 	names, err := resolveProviderNames(agent)
 	if err != nil {
 		return err
@@ -171,16 +214,16 @@ func runSearch(agent, query, projectFilter string, plain bool) error {
 	// Interactive mode: launch fzf
 	var lines []string
 	for _, m := range filtered {
-		lines = append(lines, fzf.FormatLine(m))
+		lines = append(lines, fzf.FormatLine(m, theme))
 	}
 
 	binary, err := os.Executable()
 	if err != nil {
 		binary = "chatgrep"
 	}
-	previewCmd := buildPreviewCmd(binary)
+	previewCmd := buildPreviewCmd(binary, colorMode, colorSpecs)
 
-	selected, err := fzf.Run(lines, previewCmd, binary, query)
+	selected, err := fzf.Run(lines, previewCmd, binary, query, theme.Enabled)
 	if err != nil {
 		return err
 	}
@@ -321,8 +364,20 @@ func parsePreviewTarget(arg string) (providerName, sessionID string, err error) 
 	return parts[0], parts[1], nil
 }
 
-func buildPreviewCmd(binaryPath string) string {
-	return binaryPath + " --preview {1} {2}"
+// buildPreviewCmd constructs the fzf preview command, embedding color flags
+// so the preview subprocess inherits the parent's color configuration.
+func buildPreviewCmd(binaryPath string, colorMode string, colorSpecs []string) string {
+	cmd := binaryPath + " --color=" + colorMode
+	for _, spec := range colorSpecs {
+		cmd += " --colors " + shellQuote(spec)
+	}
+	cmd += " --preview {1} {2}"
+	return cmd
+}
+
+// shellQuote wraps a string in single quotes for safe shell embedding.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
 }
 
 // resolveProjectFlag expands "." to the current working directory.

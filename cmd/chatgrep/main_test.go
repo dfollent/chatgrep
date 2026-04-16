@@ -123,7 +123,7 @@ func TestMakeProvider_CodexMissingSessionsDir(t *testing.T) {
 // We verify by passing an invalid agent: if the error is about the agent,
 // the empty query was accepted. If it says "usage", it was wrongly rejected.
 func TestRunSearch_EmptyQueryNotRejected(t *testing.T) {
-	err := runSearch("nonexistent", "", "", false)
+	err := runSearch("nonexistent", "", "", false, nil, "auto", nil)
 	if err == nil {
 		t.Fatal("expected error for invalid agent")
 	}
@@ -208,11 +208,50 @@ func TestResolveProjectFlag_Empty(t *testing.T) {
 	}
 }
 
-func TestBuildPreviewCmd(t *testing.T) {
-	cmd := buildPreviewCmd("/usr/local/bin/chatgrep")
-	want := "/usr/local/bin/chatgrep --preview {1} {2}"
+func TestBuildPreviewCmd_Default(t *testing.T) {
+	cmd := buildPreviewCmd("/usr/local/bin/chatgrep", "auto", nil)
+	want := "/usr/local/bin/chatgrep --color=auto --preview {1} {2}"
 	if cmd != want {
 		t.Errorf("got %q, want %q", cmd, want)
+	}
+}
+
+func TestBuildPreviewCmd_WithColorFlags(t *testing.T) {
+	specs := []string{"role.user:fg:red", "timestamp:style:bold"}
+	cmd := buildPreviewCmd("/usr/local/bin/chatgrep", "always", specs)
+	want := "/usr/local/bin/chatgrep --color=always --colors 'role.user:fg:red' --colors 'timestamp:style:bold' --preview {1} {2}"
+	if cmd != want {
+		t.Errorf("got:\n  %q\nwant:\n  %q", cmd, want)
+	}
+}
+
+func TestShellQuote(t *testing.T) {
+	tests := []struct {
+		in   string
+		want string
+	}{
+		{"simple", "'simple'"},
+		{"has space", "'has space'"},
+		{"it's", "'it'\\''s'"},
+	}
+	for _, tt := range tests {
+		got := shellQuote(tt.in)
+		if got != tt.want {
+			t.Errorf("shellQuote(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
+func TestMultiStringFlag(t *testing.T) {
+	var m multiStringFlag
+	if err := m.Set("a"); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Set("b"); err != nil {
+		t.Fatal(err)
+	}
+	if len(m) != 2 || m[0] != "a" || m[1] != "b" {
+		t.Errorf("got %v, want [a b]", m)
 	}
 }
 

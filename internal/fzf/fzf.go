@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/danielfollent/chatgrep/internal/color"
 	"github.com/danielfollent/chatgrep/internal/provider"
 )
 
@@ -17,38 +18,21 @@ type Selection struct {
 	MsgUUID      string
 }
 
-// ANSI escape codes for fzf --ansi colored result lines.
-const (
-	ansiCyan    = "\033[36m"
-	ansiMagenta = "\033[35m"
-	ansiYellow  = "\033[33m"
-	ansiDim     = "\033[2m"
-	ansiGreen   = "\033[32m"
-	ansiBlue    = "\033[34m"
-	ansiReset   = "\033[0m"
-)
-
 // FormatLine builds a tab-delimited fzf input line from a search match.
 // Format: provider:sessionID\tmsgUUID\tprovider timeAgo R> snippet
 // Fields 1-2 are hidden via --with-nth=3.., but accessible via {1} {2} for preview.
-// Display field is ANSI-colored; fzf --ansi strips codes for width calculation.
-func FormatLine(m provider.Match) string {
+// Display field is ANSI-colored when theme is enabled; fzf --ansi strips codes for width calculation.
+func FormatLine(m provider.Match, theme *color.Theme) string {
 	field1 := m.ProviderName + ":" + m.SessionID
 	field2 := m.UUID
 
 	roleTag := "U>"
-	roleColor := ansiGreen
+	roleStyle := theme.RoleStyle(m.Role)
 	if m.Role == "assistant" {
 		roleTag = "A>"
-		roleColor = ansiBlue
 	}
 
-	provColor := ansiCyan
-	if m.ProviderName == "copilot" {
-		provColor = ansiMagenta
-	} else if m.ProviderName == "codex" {
-		provColor = ansiYellow
-	}
+	provStyle := theme.ProviderStyle(m.ProviderName)
 
 	age := "?"
 	if t, err := time.Parse(time.RFC3339, m.Timestamp); err == nil {
@@ -59,13 +43,12 @@ func FormatLine(m provider.Match) string {
 		age = relativeTime(t)
 	}
 
-	// Pad plain text first, then wrap with ANSI so fzf column alignment is correct.
 	provStr := fmt.Sprintf("%-7s", m.ProviderName)
 	ageStr := fmt.Sprintf("%8s", age)
 
-	display := provColor + provStr + ansiReset + " " +
-		ansiDim + ageStr + ansiReset + " " +
-		roleColor + roleTag + ansiReset + " " +
+	display := theme.Apply(provStyle, provStr) + " " +
+		theme.Apply(theme.Timestamp, ageStr) + " " +
+		theme.Apply(roleStyle, roleTag) + " " +
 		m.Snippet
 
 	return field1 + "\t" + field2 + "\t" + display
@@ -113,8 +96,9 @@ func ParseSelection(line string) (Selection, error) {
 
 // Run launches fzf with the given lines and preview command.
 // query pre-populates fzf's search box so it ranks by match relevance.
+// colorEnabled controls whether --ansi is passed to fzf.
 // Returns the selected line or empty string if user cancelled (ESC).
-func Run(lines []string, previewCmd string, binaryPath string, query string) (string, error) {
+func Run(lines []string, previewCmd string, binaryPath string, query string, colorEnabled bool) (string, error) {
 	fzfPath, err := exec.LookPath("fzf")
 	if err != nil {
 		return "", fmt.Errorf("fzf not found in PATH. Install it: brew install fzf")
@@ -123,9 +107,12 @@ func Run(lines []string, previewCmd string, binaryPath string, query string) (st
 	args := []string{
 		"--delimiter=\t",
 		"--with-nth=3..",
-		"--ansi",
 		"--highlight-line",
 		"--tiebreak=index",
+	}
+
+	if colorEnabled {
+		args = append(args, "--ansi")
 	}
 
 	if query != "" {

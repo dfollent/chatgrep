@@ -4,22 +4,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/danielfollent/chatgrep/internal/color"
 	"github.com/danielfollent/chatgrep/internal/provider"
-)
-
-// ANSI color codes
-const (
-	green  = "\033[32m"
-	blue   = "\033[34m"
-	dim    = "\033[2m"
-	bold   = "\033[1m"
-	yellow = "\033[33m"
-	reset  = "\033[0m"
 )
 
 // Render formats preview messages with ANSI colors for the fzf preview pane.
 // The message matching targetUUID gets a >>> highlight marker.
-func Render(msgs []provider.PreviewMessage, targetUUID string) string {
+func Render(msgs []provider.PreviewMessage, targetUUID string, theme *color.Theme) string {
 	if len(msgs) == 0 {
 		return ""
 	}
@@ -29,32 +20,30 @@ func Render(msgs []provider.PreviewMessage, targetUUID string) string {
 		isTarget := m.UUID == targetUUID
 
 		// Timestamp header
-		b.WriteString(dim)
-		b.WriteString(m.Timestamp)
-		b.WriteString(reset)
+		b.WriteString(theme.Apply(theme.Timestamp, m.Timestamp))
 		b.WriteString("\n")
 
 		// Role label with color
 		prefix := ""
 		if isTarget {
-			prefix = yellow + ">>> " + reset
+			prefix = theme.Apply(theme.Marker, ">>> ")
 		}
 
-		var roleColor string
+		var roleStyle color.Style
 		var roleLabel string
 		if m.Role == "user" {
-			roleColor = green
+			roleStyle = theme.RoleUser
 			roleLabel = "User"
 		} else {
-			roleColor = blue
+			roleStyle = theme.RoleAssistant
 			roleLabel = "Assistant"
 		}
 
+		// Role label gets bold + role color
+		boldRole := roleStyle
+		boldRole.Bold = 1
 		b.WriteString(prefix)
-		b.WriteString(bold)
-		b.WriteString(roleColor)
-		b.WriteString(roleLabel)
-		b.WriteString(reset)
+		b.WriteString(theme.Apply(boldRole, roleLabel))
 		b.WriteString("\n")
 
 		// Message text
@@ -63,15 +52,15 @@ func Render(msgs []provider.PreviewMessage, targetUUID string) string {
 			text = text[:1000] + "..."
 		}
 		if isTarget {
-			b.WriteString(bold)
-		}
-		b.WriteString(text)
-		if isTarget {
-			b.WriteString(reset)
+			boldStyle := color.Style{FG: -1, BG: -1, Bold: 1}
+			b.WriteString(theme.Apply(boldStyle, text))
+		} else {
+			b.WriteString(text)
 		}
 		b.WriteString("\n")
 
-		b.WriteString(fmt.Sprintf("%s%s%s\n", dim, strings.Repeat("-", 40), reset))
+		b.WriteString(theme.Apply(theme.Separator, fmt.Sprintf("%s", strings.Repeat("-", 40))))
+		b.WriteString("\n")
 	}
 
 	return b.String()
