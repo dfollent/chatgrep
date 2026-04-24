@@ -18,19 +18,19 @@ Built-in history in these tools is limited to recent session titles or basic lis
 ## Install
 
 ```bash
-brew install danfollent/tap/chatgrep
+brew install dfollent/tap/chatgrep
 ```
 
 Or via `go install`:
 
 ```bash
-go install github.com/danielfollent/chatgrep/cmd/chatgrep@latest
+go install github.com/dfollent/chatgrep/cmd/chatgrep@latest
 ```
 
 Or build from source:
 
 ```bash
-git clone https://github.com/danielfollent/chatgrep.git
+git clone https://github.com/dfollent/chatgrep.git
 cd chatgrep
 go build -o bin/chatgrep ./cmd/chatgrep
 ```
